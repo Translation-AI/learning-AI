@@ -2,110 +2,179 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習データ作成サイト - Site B</title>
+    <title>学習データ作成・統合ツール - Site B</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        h1 { font-size: 1.5rem; color: #1a73e8; margin-bottom: 20px; text-align: center; }
-        .field { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
-        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.3s; }
-        input:focus { border-color: #1a73e8; outline: none; }
-        .btn-group { display: flex; gap: 10px; margin-top: 25px; }
-        button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: opacity 0.3s; }
-        .btn-download { background: #1a73e8; color: white; }
-        .btn-clear { background: #e0e0e0; color: #333; }
-        button:hover { opacity: 0.8; }
-        .status { margin-top: 15px; font-size: 0.85rem; color: #666; text-align: center; }
+        body { font-family: sans-serif; background: #f4f7f9; padding: 20px; display: flex; gap: 20px; }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .input-side { flex: 1; max-width: 400px; }
+        .list-side { flex: 2; overflow-y: auto; max-height: 90vh; }
+        h2 { font-size: 1.2rem; color: #333; border-bottom: 2px solid #1a73e8; padding-bottom: 10px; }
+        .field { margin-bottom: 12px; }
+        label { display: block; font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-add { background: #1a73e8; color: white; }
+        .btn-load { background: #34a853; color: white; }
+        .btn-download { background: #ea4335; color: white; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85rem; }
+        th, td { border: 1px solid #eee; padding: 8px; text-align: left; }
+        th { background: #f8f9fa; }
+        .flag-tag { padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; }
+        .incomplete { background: #fff3cd; color: #856404; } /* 欠損あり */
+        .complete { background: #d4edda; color: #155724; }   /* 111 */
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>翻訳学習データ作成</h1>
+<div class="panel input-side">
+    <h2>データ入力 / 読み込み</h2>
     
     <div class="field">
-        <label>English (EN) *基準</label>
-        <input type="text" id="en" placeholder="例: Apple" oninput="updateStatus()">
+        <label>英語 (English)</label>
+        <input type="text" id="en" placeholder="Apple">
     </div>
-
     <div class="field">
-        <label>日本語 (JP)</label>
-        <input type="text" id="jp" placeholder="例: リンゴ">
+        <label>日本語 (Japanese)</label>
+        <input type="text" id="jp" placeholder="リンゴ">
     </div>
-
     <div class="field">
-        <label>中国語 (ZH)</label>
-        <input type="text" id="zh" placeholder="例: 苹果">
+        <label>中国語 (Chinese)</label>
+        <input type="text" id="zh" placeholder="苹果">
     </div>
-
     <div class="field">
-        <label>拼音 (PY)</label>
-        <input type="text" id="py" placeholder="例: píngguǒ">
+        <label>拼音 (Pinyin)</label>
+        <input type="text" id="py" placeholder="píngguǒ">
     </div>
 
-    <div id="flag-status" class="status">フラグ: 000 (入力待ち)</div>
+    <button class="btn btn-add" onclick="addEntry()">リストに追加 / 合成</button>
+    
+    <hr style="margin: 20px 0;">
+    
+    <label>既存JSONを読み込んで合成</label>
+    <input type="file" id="fileInput" multiple accept=".json" onchange="loadFiles(this)" style="font-size: 0.8rem;">
+    <p style="font-size: 0.7rem; color: #666;">※複数選択して一括合成が可能です</p>
 
-    <div class="btn-group">
-        <button class="btn-clear" onclick="clearForm()">クリア</button>
-        <button class="btn-download" onclick="downloadJSON()">JSON保存</button>
-    </div>
+    <button class="btn btn-download" onclick="downloadAll()">マスターJSONを出力 (EN順)</button>
+</div>
+
+<div class="panel list-side">
+    <h2>現在のデータリスト（英語アルファベット順）</h2>
+    <div id="missing-count" style="font-size: 0.9rem; color: #d93025; font-weight: bold;"></div>
+    <table>
+        <thead>
+            <tr>
+                <th>フラグ</th>
+                <th>EN (基準)</th>
+                <th>JP</th>
+                <th>ZH</th>
+                <th>PY</th>
+            </tr>
+        </thead>
+        <tbody id="data-table">
+            </tbody>
+    </table>
 </div>
 
 <script>
-    function updateStatus() {
-        const en = document.getElementById('en').value;
-        const jp = document.getElementById('jp').value;
-        const zh = document.getElementById('zh').value;
-        
-        // ビットフラグ計算 (JP=1, EN=2, CH=4)
-        let flag = 0;
-        if (jp) flag |= 1;  // 001
-        if (en) flag |= 2;  // 010
-        if (zh) flag |= 4;  // 100
-        
-        const binFlag = flag.toString(2).padStart(3, '0');
-        document.getElementById('flag-status').innerText = `フラグ: ${binFlag} (${flag === 7 ? '111: 完成' : '作成中'})`;
-    }
+    // メモリ上のデータストア { "apple": {jp: "...", zh: "...", py: "..."} }
+    let masterData = {};
 
-    // フォームを監視してフラグを更新
-    document.querySelectorAll('input').forEach(input => {
-        input.addEventListener('input', updateStatus);
-    });
+    function addEntry() {
+        const en = document.getElementById('en').value.trim();
+        if (!en) return alert("英語を入力してください");
 
-    function downloadJSON() {
-        const enVal = document.getElementById('en').value;
-        if (!enVal) {
-            alert("統合のキーとなる English (EN) は入力必須です。");
-            return;
-        }
-
-        // あなたの指定した純粋なデータ構造
-        const output = {
-            "data": {
-                "jp": document.getElementById('jp').value || "",
-                "en": enVal,
-                "zh": document.getElementById('zh').value || "",
-                "py": document.getElementById('py').value || ""
-            }
+        const newData = {
+            jp: document.getElementById('jp').value.trim(),
+            en: en,
+            zh: document.getElementById('zh').value.trim(),
+            py: document.getElementById('py').value.trim()
         };
 
-        const blob = new Blob([JSON.stringify(output, null, 2)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        
-        // ファイル名はENベース（後でソートしやすくするため）
-        a.href = url;
-        a.download = `${enVal.toLowerCase().replace(/\s+/g, '_')}.json`;
-        a.click();
-        
-        URL.revokeObjectURL(url);
+        mergeToMaster(newData);
+        clearInputs();
+        renderTable();
     }
 
-    function clearForm() {
-        document.querySelectorAll('input').forEach(input => input.value = '');
-        updateStatus();
+    // データの合成（マージ）エンジン
+    function mergeToMaster(entry) {
+        const key = entry.en.toLowerCase(); // アルファベット順ソート用キー
+
+        if (!masterData[key]) {
+            masterData[key] = entry;
+        } else {
+            // 既存データがあれば欠損を埋める（合成）
+            if (!masterData[key].jp) masterData[key].jp = entry.jp;
+            if (!masterData[key].zh) masterData[key].zh = entry.zh;
+            if (!masterData[key].py) masterData[key].py = entry.py;
+        }
+    }
+
+    // ファイル読み込み
+    async function loadFiles(input) {
+        for (let file of input.files) {
+            const text = await file.text();
+            try {
+                const json = JSON.parse(text);
+                // 単体データ {data: {...}} か、配列かを判定して取り込む
+                const dataArray = json.data ? [json.data] : (Array.isArray(json) ? json : []);
+                dataArray.forEach(item => mergeToMaster(item));
+            } catch (e) {
+                console.error("ファイル読み込みエラー:", file.name);
+            }
+        }
+        renderTable();
+        input.value = ""; // リセット
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('data-table');
+        tbody.innerHTML = "";
+        
+        // 英語のアルファベット順にソート
+        const sortedKeys = Object.keys(masterData).sort();
+        let missingCount = 0;
+
+        sortedKeys.forEach(key => {
+            const d = masterData[key];
+            
+            // フラグ計算
+            let f = 0;
+            if (d.jp) f |= 1; // 001
+            if (d.en) f |= 2; // 010
+            if (d.zh) f |= 4; // 100
+            
+            if (f < 7) missingCount++;
+
+            const row = `<tr>
+                <td><span class="flag-tag ${f === 7 ? 'complete' : 'incomplete'}">${f.toString(2).padStart(3, '0')}</span></td>
+                <td>${d.en}</td>
+                <td>${d.jp || '-'}</td>
+                <td>${d.zh || '-'}</td>
+                <td>${d.py || '-'}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+
+        document.getElementById('missing-count').innerText = missingCount > 0 ? `未完成データ: ${missingCount}件` : "すべてのデータが完全です(111)";
+    }
+
+    function clearInputs() {
+        ['en', 'jp', 'zh', 'py'].forEach(id => document.getElementById(id).value = "");
+    }
+
+    function downloadAll() {
+        const sortedArray = Object.keys(masterData).sort().map(key => ({
+            data: masterData[key]
+        }));
+
+        if (sortedArray.length === 0) return alert("データがありません");
+
+        const blob = new Blob([JSON.stringify(sortedArray, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `master_dataset_${Date.now()}.json`;
+        a.click();
     }
 </script>
 
