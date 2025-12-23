@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学習データ作成サイト - Site B</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h1 { font-size: 1.5rem; color: #1a73e8; margin-bottom: 20px; text-align: center; }
+        .field { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; transition: border-color 0.3s; }
+        input:focus { border-color: #1a73e8; outline: none; }
+        .btn-group { display: flex; gap: 10px; margin-top: 25px; }
+        button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; transition: opacity 0.3s; }
+        .btn-download { background: #1a73e8; color: white; }
+        .btn-clear { background: #e0e0e0; color: #333; }
+        button:hover { opacity: 0.8; }
+        .status { margin-top: 15px; font-size: 0.85rem; color: #666; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>翻訳学習データ作成</h1>
+    
+    <div class="field">
+        <label>English (EN) *基準</label>
+        <input type="text" id="en" placeholder="例: Apple" oninput="updateStatus()">
+    </div>
+
+    <div class="field">
+        <label>日本語 (JP)</label>
+        <input type="text" id="jp" placeholder="例: リンゴ">
+    </div>
+
+    <div class="field">
+        <label>中国語 (ZH)</label>
+        <input type="text" id="zh" placeholder="例: 苹果">
+    </div>
+
+    <div class="field">
+        <label>拼音 (PY)</label>
+        <input type="text" id="py" placeholder="例: píngguǒ">
+    </div>
+
+    <div id="flag-status" class="status">フラグ: 000 (入力待ち)</div>
+
+    <div class="btn-group">
+        <button class="btn-clear" onclick="clearForm()">クリア</button>
+        <button class="btn-download" onclick="downloadJSON()">JSON保存</button>
+    </div>
+</div>
+
+<script>
+    function updateStatus() {
+        const en = document.getElementById('en').value;
+        const jp = document.getElementById('jp').value;
+        const zh = document.getElementById('zh').value;
+        
+        // ビットフラグ計算 (JP=1, EN=2, CH=4)
+        let flag = 0;
+        if (jp) flag |= 1;  // 001
+        if (en) flag |= 2;  // 010
+        if (zh) flag |= 4;  // 100
+        
+        const binFlag = flag.toString(2).padStart(3, '0');
+        document.getElementById('flag-status').innerText = `フラグ: ${binFlag} (${flag === 7 ? '111: 完成' : '作成中'})`;
+    }
+
+    // フォームを監視してフラグを更新
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateStatus);
+    });
+
+    function downloadJSON() {
+        const enVal = document.getElementById('en').value;
+        if (!enVal) {
+            alert("統合のキーとなる English (EN) は入力必須です。");
+            return;
+        }
+
+        // あなたの指定した純粋なデータ構造
+        const output = {
+            "data": {
+                "jp": document.getElementById('jp').value || "",
+                "en": enVal,
+                "zh": document.getElementById('zh').value || "",
+                "py": document.getElementById('py').value || ""
+            }
+        };
+
+        const blob = new Blob([JSON.stringify(output, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        
+        // ファイル名はENベース（後でソートしやすくするため）
+        a.href = url;
+        a.download = `${enVal.toLowerCase().replace(/\s+/g, '_')}.json`;
+        a.click();
+        
+        URL.revokeObjectURL(url);
+    }
+
+    function clearForm() {
+        document.querySelectorAll('input').forEach(input => input.value = '');
+        updateStatus();
+    }
+</script>
+
+</body>
+</html>
