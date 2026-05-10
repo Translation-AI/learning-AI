@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日中英 簡易翻訳 AI</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 15px;
+            font-size: 1.1rem;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: #1a73e8;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            margin: 5px;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .btn-search {
+            background-color: #1a73e8;
+            color: white;
+            width: 80%;
+        }
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+            display: none;
+        }
+        .result-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .lang-label {
+            font-size: 0.75rem;
+            color: #666;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .lang-text {
+            font-size: 1.3rem;
+            color: #222;
+            margin-top: 5px;
+        }
+        .register-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .register-form {
+            display: none;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .register-form input {
+            width: 90%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .btn-register {
+            background-color: #34a853;
+            color: white;
+            width: 100%;
+        }
+        .btn-toggle {
+            background-color: #fbbc04;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .notification.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌏 日中英 翻訳 AI</h1>
+    <p style="color: #666; font-size: 0.9rem;">言葉を入力して、3ヶ国語で表示させましょう</p>
+    
+    <div class="input-group">
+        <input type="text" id="searchInput" placeholder="Hello, こんにちは，你好..." onkeypress="handleEnter(event)">
+        <br>
+        <button class="btn-search" onclick="translate()">翻訳する</button>
+    </div>
+
+    <div id="resultBox" class="result-box">
+        <!-- 結果がここに表示されます -->
+    </div>
+
+    <div class="register-section">
+        <button class="btn-toggle" onclick="toggleRegisterForm()">言葉を登録する（学習）</button>
+        
+        <div id="registerForm" class="register-form">
+            <label class="lang-label">英語 (English)</label>
+            <input type="text" id="regEn" placeholder="Apple">
+            
+            <label class="lang-label">日本語 (Japanese)</label>
+            <input type="text" id="regJp" placeholder="リンゴ">
+            
+            <label class="lang-label">中国語 (Chinese)</label>
+            <input type="text" id="regZh" placeholder="苹果">
+            
+            <label class="lang-label">拼音 (Pinyin) ※任意</label>
+            <input type="text" id="regPy" placeholder="píngguǒ">
+            
+            <button class="btn-register" onclick="registerWord()">登録する</button>
+        </div>
+    </div>
+</div>
+
+<div id="notification" class="notification">登録しました！</div>
+
+<script>
+    // 初期データ（辞書）
+    let dictionary = [
+        { en: "Hello", jp: "こんにちは", zh: "你好", py: "nǐ hǎo" },
+        { en: "Hi", jp: "やあ", zh: "嗨", py: "hāi" },
+        { en: "Good morning", jp: "おはようございます", zh: "早上好", py: "zǎo shang hǎo" },
+        { en: "Thank you", jp: "ありがとう", zh: "谢谢", py: "xiè xie" },
+        { en: "Sorry", jp: "ごめんなさい", zh: "对不起", py: "duì bu qǐ" },
+        { en: "Yes", jp: "はい", zh: "是", py: "shì" },
+        { en: "No", jp: "いいえ", zh: "不", py: "bù" },
+        { en: "Water", jp: "水", zh: "水", py: "shuǐ" },
+        { en: "Food", jp: "食べ物", zh: "食物", py: "shí wù" },
+        { en: "Love", jp: "愛", zh: "爱", py: "ài" }
+    ];
+
+    // エンターキーで検索
+    function handleEnter(e) {
+        if (e.key === 'Enter') translate();
+    }
+
+    // 翻訳機能
+    function translate() {
+        const input = document.getElementById('searchInput').value.trim();
+        const resultBox = document.getElementById('resultBox');
+        
+        if (!input) {
+            alert("何か入力してください");
+            return;
+        }
+
+        // 辞書から一致するものを探す（大文字小文字を無視）
+        const found = dictionary.find(item => 
+            item.en.toLowerCase() === input.toLowerCase() ||
+            item.jp === input ||
+            item.zh === input
+        );
+
+        resultBox.style.display = 'block';
+        
+        if (found) {
+            resultBox.innerHTML = `
+                <div class="result-item">
+                    <div class="lang-label">English</div>
+                    <div class="lang-text">${found.en}</div>
+                </div>
+                <div class="result-item">
+                    <div class="lang-label">日本語</div>
+                    <div class="lang-text">${found.jp}</div>
+                </div>
+                <div class="result-item">
+                    <div class="lang-label">中文 (Chinese)</div>
+                    <div class="lang-text">${found.zh} <span style="font-size:0.9rem; color:#666;">(${found.py})</span></div>
+                </div>
+            `;
+        } else {
+            resultBox.innerHTML = `
+                <div style="text-align: center; color: #d93025; padding: 20px;">
+                    該当する言葉が見つかりませんでした。<br>
+                    下の「言葉を登録する」から新しく登録してください。
+                </div>
+            `;
+        }
+    }
+
+    // 登録フォームの切り替え
+    function toggleRegisterForm() {
+        const form = document.getElementById('registerForm');
+        form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // 単語の登録機能
+    function registerWord() {
+        const en = document.getElementById('regEn').value.trim();
+        const jp = document.getElementById('regJp').value.trim();
+        const zh = document.getElementById('regZh').value.trim();
+        const py = document.getElementById('regPy').value.trim();
+
+        if (!en && !jp && !zh) {
+            alert("少なくとも一つの言語を入力してください");
+            return;
+        }
+
+        // 新しいデータを追加
+        dictionary.push({
+            en: en || "-",
+            jp: jp || "-",
+            zh: zh || "-",
+            py: py || "-"
+        });
+
+        // 入力欄をクリア
+        document.getElementById('regEn').value = "";
+        document.getElementById('regJp').value = "";
+        document.getElementById('regZh').value = "";
+        document.getElementById('regPy').value = "";
+        
+        // フォームを閉じる
+        document.getElementById('registerForm').style.display = 'none';
+
+        // お知らせ表示
+        showNotification("新しい言葉を学習しました！");
+        
+        // 自動で検索し直す（登録した言葉が入力されていれば）
+        const currentInput = document.getElementById('searchInput').value.trim();
+        if(currentInput && (en === currentInput || jp === currentInput || zh === currentInput)) {
+            translate();
+        }
+    }
+
+    function showNotification(msg) {
+        const notif = document.getElementById('notification');
+        notif.innerText = msg;
+        notif.classList.add('show');
+        setTimeout(() => {
+            notif.classList.remove('show');
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>
