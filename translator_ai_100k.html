@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日中英 3 ヶ国語 AI 辞書 (10 万語対応)</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .stats {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result-count {
+            margin-bottom: 10px;
+            color: #666;
+        }
+        .results {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .lang-label {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .ja { background-color: #ffebee; color: #c62828; }
+        .en { background-color: #e3f2fd; color: #1565c0; }
+        .zh { background-color: #e8f5e9; color: #2e7d32; }
+        .translation {
+            margin-top: 8px;
+            padding-left: 10px;
+            border-left: 3px solid #ddd;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            color: red;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌏 日中英 3 ヶ国語 AI 辞書</h1>
+    <div class="stats" id="stats">データ読込中...</div>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="日本語、英語、中国語で検索..." autofocus>
+        <button onclick="search()">検索</button>
+    </div>
+    
+    <div class="result-count" id="resultCount"></div>
+    <div class="results" id="results">
+        <div class="loading">データをロードしています...</div>
+    </div>
+
+    <script>
+        let dictionaryData = [];
+        let searchIndex = {}; // 高速検索用のインデックス
+
+        // データのロード
+        async function loadData() {
+            try {
+                const response = await fetch('dictionary_data.json');
+                if (!response.ok) {
+                    throw new Error('データの読み込みに失敗しました');
+                }
+                dictionaryData = await response.json();
+                
+                // 検索インデックスの構築
+                buildSearchIndex();
+                
+                document.getElementById('stats').textContent = 
+                    `登録データ数：${dictionaryData.length.toLocaleString()}件`;
+                document.getElementById('results').innerHTML = 
+                    '<div class="loading">検索キーワードを入力してください</div>';
+            } catch (error) {
+                document.getElementById('results').innerHTML = 
+                    `<div class="error">エラー：${error.message}<br>dictionary_data.json ファイルが必要です</div>`;
+                document.getElementById('stats').textContent = 'データ読込エラー';
+            }
+        }
+
+        // 検索インデックスの構築（高速化のため）
+        function buildSearchIndex() {
+            searchIndex = {};
+            dictionaryData.forEach((item, index) => {
+                // 各言語のテキストをインデックスに追加
+                ['ja', 'en', 'zh'].forEach(lang => {
+                    const text = item[lang].toLowerCase();
+                    if (!searchIndex[text]) {
+                        searchIndex[text] = [];
+                    }
+                    searchIndex[text].push(index);
+                    
+                    // 単語ごとのインデックスも作成（部分一致用）
+                    const words = text.split(/\s+/);
+                    words.forEach(word => {
+                        if (word.length > 1) { // 1 文字は除外
+                            if (!searchIndex[word]) {
+                                searchIndex[word] = [];
+                            }
+                            searchIndex[word].push(index);
+                        }
+                    });
+                });
+            });
+            console.log('検索インデックス構築完了');
+        }
+
+        // 検索機能
+        function search() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const resultsDiv = document.getElementById('results');
+            const countDiv = document.getElementById('resultCount');
+            
+            if (!query) {
+                resultsDiv.innerHTML = '<div class="loading">検索キーワードを入力してください</div>';
+                countDiv.textContent = '';
+                return;
+            }
+            
+            const startTime = performance.now();
+            
+            // インデックスから検索
+            let matchedIndices = new Set();
+            
+            // 完全一致検索
+            if (searchIndex[query]) {
+                searchIndex[query].forEach(idx => matchedIndices.add(idx));
+            }
+            
+            // 部分一致検索（インデックスに登録されていない場合）
+            if (matchedIndices.size === 0) {
+                dictionaryData.forEach((item, index) => {
+                    if (item.ja.toLowerCase().includes(query) ||
+                        item.en.toLowerCase().includes(query) ||
+                        item.zh.toLowerCase().includes(query)) {
+                        matchedIndices.add(index);
+                    }
+                });
+            }
+            
+            const endTime = performance.now();
+            const searchTime = ((endTime - startTime)).toFixed(2);
+            
+            const results = Array.from(matchedIndices).map(idx => dictionaryData[idx]);
+            
+            countDiv.textContent = `${results.length.toLocaleString()}件見つかりました (${searchTime}ms)`;
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="loading">該当する結果が見つかりませんでした</div>';
+                return;
+            }
+            
+            // 結果の表示（最大 50 件まで）
+            const displayResults = results.slice(0, 50);
+            resultsDiv.innerHTML = displayResults.map(item => `
+                <div class="result-item">
+                    <div><span class="lang-label ja">日本語</span>${escapeHtml(item.ja)}</div>
+                    <div class="translation"><span class="lang-label en">English</span>${escapeHtml(item.en)}</div>
+                    <div class="translation"><span class="lang-label zh">中文</span>${escapeHtml(item.zh)}</div>
+                </div>
+            `).join('');
+            
+            if (results.length > 50) {
+                resultsDiv.innerHTML += `<div class="loading">他 ${results.length - 50} 件...</div>`;
+            }
+        }
+
+        // HTML エスケープ
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // エンターキーで検索
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                search();
+            }
+        });
+
+        // ページロード時にデータを読み込み
+        window.onload = loadData;
+    </script>
+</body>
+</html>
